@@ -14,7 +14,7 @@ import pandas as pd
 # =========================
 st.set_page_config(page_title="שאלון לסטודנטים – תשפ״ו", layout="centered")
 
-# ====== עיצוב — בדיוק לפי ה-CSS שסיפקת ======
+# ====== עיצוב — לפי ה-CSS שביקשת ======
 st.markdown("""
 <style>
 :root{
@@ -290,26 +290,34 @@ with tab2:
         ["— בחר/י —"] + chosen_domains if chosen_domains else ["— בחר/י —"]
     )
 
-    st.markdown("**בחר/י מוסד לכל מדרגה דירוג (1 = הכי רוצים, 10 = הכי פחות). חובה לבחור את כל 10 המוסדות — ללא דילוגים וללא כפילויות.**")
+    st.markdown("**בחר/י מוסד לכל מדרגה דירוג (1 = הכי רוצים, 10 = הכי פחות). הבחירה כובלת קדימה — מוסדות שנבחרו ייעלמו מהמדרגות הבאות.**")
 
-    # נשתמש ב-session_state כדי למנוע כפילויות בין הבחירות
+    # אתחול מצב הבחירות
     for i in range(1, RANK_COUNT + 1):
         st.session_state.setdefault(f"rank_{i}", "— בחר/י —")
 
-    def available_options_for(rank_i: int) -> list:
+    def options_for_rank(rank_i: int) -> list:
+        """
+        מחזיר רשימת אפשרויות למדרגה i:
+        רק מוסדות שטרם נבחרו במדרגות 1..i-1, ועוד הבחירה הנוכחית (אם קיימת),
+        כך שהכפילות נמנעת כיוונית (קדימה) בלבד.
+        """
         current = st.session_state.get(f"rank_{rank_i}", "— בחר/י —")
-        chosen_elsewhere = {
+        chosen_before = {
             st.session_state.get(f"rank_{j}")
-            for j in range(1, RANK_COUNT + 1) if j != rank_i
+            for j in range(1, rank_i)  # רק מדרגות קודמות
         }
-        # מציגים רק מוסדות שלא נבחרו במקום אחר, וגם את הבחירה הנוכחית (כדי לא "להפיל" אותה מהרשימה)
-        opts = ["— בחר/י —"] + [s for s in SITES if (s not in chosen_elsewhere or s == current)]
-        return opts
+        # בונים רשימה: "— בחר/י —" + כל מוסד שלא נבחר לפני, או שהוא הבחירה הנוכחית
+        base = ["— בחר/י —"] + [s for s in SITES if (s not in chosen_before or s == current)]
+        # שומרים על סדר SITES:
+        ordered = ["— בחר/י —"] + [s for s in SITES if s in base]
+        return ordered
 
+    # רנדרינג של המדרגות עם סינון קדימה
     cols = st.columns(2)
     for i in range(1, RANK_COUNT + 1):
         with cols[(i - 1) % 2]:
-            opts = available_options_for(i)
+            opts = options_for_rank(i)
             current = st.session_state.get(f"rank_{i}", "— בחר/י —")
             st.session_state[f"rank_{i}"] = st.selectbox(
                 f"מדרגה {i} (בחר/י מוסד)*",
@@ -317,8 +325,20 @@ with tab2:
                 index=opts.index(current) if current in opts else 0,
                 key=f"rank_{i}_select"
             )
-            # מאחדים את המפתח (לעבודה קלה בהמשך)
+            # מאחדים תחת מפתח קבוע
             st.session_state[f"rank_{i}"] = st.session_state[f"rank_{i}_select"]
+
+    # נורמליזציה: אם שינית מדרגה מוקדמת והתנגשת עם בחירה מאוחרת — ננקה את המאוחרת
+    used = set()
+    for i in range(1, RANK_COUNT + 1):
+        sel = st.session_state.get(f"rank_{i}", "— בחר/י —")
+        if sel != "— בחר/י —":
+            if sel in used:
+                # בחירה כפולה שהתגלתה בגלל שינוי מוקדם -> איפוס המאוחרת
+                st.session_state[f"rank_{i}"] = "— בחר/י —"
+                st.session_state[f"rank_{i}_select"] = "— בחר/י —"
+            else:
+                used.add(sel)
 
     special_request = st.text_area("האם קיימת בקשה מיוחדת הקשורה למיקום או תחום ההתמחות? *", height=100)
 
@@ -427,7 +447,7 @@ if submitted:
     if prev_training in ["כן","אחר..."]:
         if not prev_place.strip():  errors.append("סעיף 2: יש למלא מקום/תחום אם הייתה הכשרה קודמת.")
         if not prev_mentor.strip(): errors.append("סעיף 2: יש למלא שם מדריך ומיקום.")
-        if not prev_partner.strip():errors.append("סעיף 2: יש למלא בן/בת זוג להתמחות.")
+        if not prev_partner.strip():errors.append("ಸעיף 2: יש למלא בן/בת זוג להתמחות.")
 
     if not chosen_domains:
         errors.append("סעיף 2: יש לבחור עד 3 תחומים (לפחות אחד).")
