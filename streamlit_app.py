@@ -507,4 +507,39 @@ if submitted:
             "שפת_אם": (other_mt.strip() if mother_tongue=="אחר..." else mother_tongue),
             "שפות_נוספות": "; ".join([x for x in extra_langs if x!="אחר..."] + ([extra_langs_other.strip()] if "אחר..." in extra_langs else [])),
             "טלפון": phone.strip(), "כתובת": address.strip(), "אימייל": email.strip(),
-            "שנ
+            "שנת_לימודים": (study_year_other.strip() if study_year=="אחר..." else study_year),
+            "מסלול_לימודים": track.strip(),
+            "ניידות": (mobility_other.strip() if mobility=="אחר..." else mobility),
+            "הכשרה_קודמת": prev_training,
+            "הכשרה_קודמת_מקום_ותחום": prev_place.strip(),
+            "הכשרה_קודמת_מדריך_ומיקום": prev_mentor.strip(),
+            "הכשרה_קודמת_בן_זוג": prev_partner.strip(),
+            "תחומים_מועדפים": "; ".join([d for d in chosen_domains if d!="אחר..."] + ([domains_other.strip()] if "אחר..." in chosen_domains else [])),
+            "תחום_מוביל": (top_domain if top_domain and top_domain!="— בחר/י —" else ""),
+            "בקשה_מיוחדת": special_request.strip(),
+            "ממוצע": avg_grade,
+            "התאמות": "; ".join([a for a in adjustments if a!="אחר..."] + ([adjustments_other.strip()] if "אחר..." in adjustments else [])),
+            "התאמות_פרטים": adjustments_details.strip(),
+            "מוטיבציה_1": m1, "מוטיבציה_2": m2, "מוטיבציה_3": m3,
+        }
+
+        # הוספת שדות דירוג:
+        # 1) Rank_i -> Site
+        for i in range(1, RANK_COUNT+1):
+            row[f"דירוג_מדרגה_{i}_מוסד"] = rank_to_site[i]
+        # 2) Site -> Rank (כמו "כפר הילדים חורפיש – 1")
+        for s in SITES:
+            row[f"דירוג_{s}"] = site_to_rank[s]
+
+        try:
+            # 1) מאסטר מצטבר (Load+Concat) – לעולם לא מתאפס
+            df_master = load_csv_safely(CSV_FILE)
+            df_master = pd.concat([df_master, pd.DataFrame([row])], ignore_index=True)
+            save_master_dataframe(df_master)
+
+            # 2) יומן Append-Only
+            append_to_log(pd.DataFrame([row]))
+
+            st.success("✅ הטופס נשלח ונשמר בהצלחה! תודה רבה.")
+        except Exception as e:
+            st.error(f"❌ שמירה נכשלה: {e}")
