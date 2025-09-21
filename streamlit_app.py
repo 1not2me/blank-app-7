@@ -14,7 +14,7 @@ import pandas as pd
 # =========================
 st.set_page_config(page_title="שאלון לסטודנטים – תשפ״ו", layout="centered")
 
-# ====== עיצוב ======
+# ====== עיצוב (CSS אחיד כפי שביקשת) ======
 st.markdown("""
 <style>
 :root{
