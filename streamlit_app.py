@@ -58,10 +58,7 @@ CSV_LOG_FILE  = DATA_DIR / "שאלון_שיבוץ_log.csv"     # יומן הוס
 ADMIN_PASSWORD = st.secrets.get("ADMIN_PASSWORD", "rawan_0304")  # מומלץ לשים ב-secrets
 
 # תמיכה בפרמטר admin=1 ב-URL
-try:
-    is_admin_mode = st.experimental_get_query_params().get("admin", ["0"])[0] == "1"
-except Exception:
-    is_admin_mode = False
+is_admin_mode = st.query_params.get("admin", ["0"])[0] == "1"
 # =========================
 # פונקציות עזר (קבצים/ולידציה/ייצוא)
 # =========================
