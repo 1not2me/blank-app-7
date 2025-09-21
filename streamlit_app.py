@@ -59,9 +59,9 @@ ADMIN_PASSWORD = st.secrets.get("ADMIN_PASSWORD", "rawan_0304")  # מומלץ ל
 
 # תמיכה בפרמטר admin=1 ב-URL
 try:
-    is_admin_mode = st.query_params.get("admin", ["0"])[0] == "1"
-except Exception:
     is_admin_mode = st.experimental_get_query_params().get("admin", ["0"])[0] == "1"
+except Exception:
+    is_admin_mode = False
 
 # =========================
 # פונקציות עזר (קבצים/ולידציה/ייצוא)
