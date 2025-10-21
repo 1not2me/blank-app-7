@@ -145,15 +145,13 @@ RANK_COUNT = 3
 COLUMNS_ORDER = [
     "תאריך שליחה", "שם פרטי", "שם משפחה", "תעודת זהות", "מין", "שיוך חברתי",
     "שפת אם", "שפות נוספות", "טלפון", "כתובת", "אימייל",
-    "שנת לימודים", "מסלול לימודים",
+    "שנת לימודים", "מסלול לימודים", "ניידות",
     "הכשרה קודמת", "הכשרה קודמת מקום ותחום",
     "הכשרה קודמת מדריך ומיקום", "הכשרה קודמת בן זוג",
     "תחומים מועדפים", "תחום מוביל", "בקשה מיוחדת",
     "ממוצע", "התאמות", "התאמות פרטים",
     "מוטיבציה 1", "מוטיבציה 2", "מוטיבציה 3",
-] + [f"מקום הכשרה {i}" for i in range(1, RANK_COUNT+1)] + [f"דירוג_{s}" for s in SITES] + [
-    "אישור הגעה להכשרה"
-]
+] + [f"דירוג_מדרגה_{i}_מוסד" for i in range(1, RANK_COUNT+1)] + [f"דירוג_{s}" for s in SITES]
 
 # =========================
 # פונקציה לעיצוב Google Sheets
@@ -342,16 +340,22 @@ with tab1:
     address = st.text_input("כתובת מלאה (כולל יישוב) *")
     email   = st.text_input("כתובת דוא״ל *")
     study_year = st.selectbox("שנת הלימודים *", [
-        "תואר ראשון - שנה א", "תואר ראשון - שנה ב", "תואר ראשון - שנה ג'",
-        "תואר שני - שנה א'", "תואר שני - שנה ב", "אחר"
+        "תואר ראשון - שנה א", "'תואר ראשון - שנה ב", "'תואר ראשון - שנה ג'",
+        "תואר שני - שנה א'","'תואר שני - שנה ב", "אחר"
     ])
-    study_year_other = st.text_input("פרט/י שנת לימודים *") if study_year == "אחר" else ""
     
     track = st.selectbox("מסלול הלימודים / תואר *", [
         "תואר ראשון – תוכנית רגילה",
         "תואר ראשון – הסבה",
         "תואר שני"
     ])
+    
+    mobility = st.selectbox("אופן ההגעה להתמחות (ניידות) *", [
+        "אוכל להיעזר ברכב / ברשותי רכב",
+        "אוכל להגיע בתחבורה ציבורית",
+        "אחר..."
+    ])
+    mobility_other = st.text_input("פרט/י אחר לגבי ניידות *") if mobility == "אחר..." else ""
 
 # --- סעיף 2 ---
 with tab2:
@@ -377,10 +381,14 @@ with tab2:
         ["— בחר/י —"] + chosen_domains if chosen_domains else ["— בחר/י —"]
     )
 
-    # ניסוח דירוג — מדויק לפי המרצים
-    st.caption("הדירוג אינו מחייב את מורי השיטות.")
+    # כאן נוספה הערת אזהרה על הדירוג
+    st.markdown("""
+    <span style='color:red; font-weight:bold'>
+    שימו לב: הדירוג איננו מחייב את מורי השיטות, אך מומלץ להתחשב בו.
+    </span>
+    """, unsafe_allow_html=True)
 
-    st.markdown("**בחר/י מוסד לכל מקום הכשרה (1 = הכי רוצים, 3 = הכי פחות). הבחירה כובלת קדימה — מוסדות שנבחרו ייעלמו מהבחירות הבאות.**")
+    st.markdown("**בחר/י מוסד לכל מדרגה דירוג (1 = הכי רוצים, 3 = הכי פחות). הבחירה כובלת קדימה — מוסדות שנבחרו ייעלמו מהמדרגות הבאות.**")
 
     # אתחול מצב הבחירות
     for i in range(1, RANK_COUNT + 1):
@@ -403,7 +411,7 @@ with tab2:
             opts = options_for_rank(i)
             current = st.session_state.get(f"rank_{i}", "— בחר/י —")
             st.session_state[f"rank_{i}"] = st.selectbox(
-                f"מקום הכשרה {i} (בחר/י מוסד) *",
+                f"מדרגה {i} (בחר/י מוסד)*",
                 options=opts,
                 index=opts.index(current) if current in opts else 0,
                 key=f"rank_{i}_select"
@@ -464,10 +472,7 @@ with tab6:
     st.subheader("סיכום ושליחה")
     st.markdown("בדקו את התקציר. אם יש טעות – חזרו לטאב המתאים, תקנו וחזרו לכאן. לאחר אישור ולחיצה על **שליחה** המידע יישמר.")
 
-    # היגד הצהרה מחייב לפי המרצים
-    arrival_confirm = st.checkbox("אני מצהיר/ה שאגיע בכל דרך להכשרה המעשית שתיקבע לי. *")
-
-    # מיפוי מקום הכשרה->מוסד + מוסד->דירוג
+    # מיפוי מדרגה->מוסד + מוסד->מדרגה
     rank_to_site = {i: st.session_state.get(f"rank_{i}", "— בחר/י —") for i in range(1, RANK_COUNT + 1)}
     site_to_rank = {s: None for s in SITES}
     for i, s in rank_to_site.items():
@@ -486,8 +491,9 @@ with tab6:
         "שפת אם": (other_mt if mother_tongue == "אחר..." else mother_tongue),
         "שפות נוספות": "; ".join([x for x in extra_langs if x != "אחר..."] + ([extra_langs_other] if "אחר..." in extra_langs else [])),
         "טלפון": phone, "כתובת": address, "אימייל": email,
-        "שנת לימודים": (study_year_other if study_year == "אחר" else study_year),
+        "שנת לימודים": (study_year_other if study_year == "אחר..." else study_year),
         "מסלול לימודים": track,
+        "ניידות": (mobility_other if mobility == "אחר..." else mobility),
     }]).T.rename(columns={0: "ערך"}))
 
     st.markdown("### 🎓 נתונים אקדמיים")
@@ -526,26 +532,31 @@ if submitted:
         errors.append("סעיף 1: יש למלא כתובת מלאה.")
     if not valid_email(email):
         errors.append("סעיף 1: כתובת דוא״ל אינה תקינה.")
-    if study_year == "אחר" and not study_year_other.strip():
+    if study_year == "אחר..." and not study_year_other.strip():
         errors.append("סעיף 1: יש לפרט שנת לימודים (אחר).")
     if not track.strip():
         errors.append("סעיף 1: יש למלא מסלול לימודים/תואר.")
+    if mobility == "אחר..." and not mobility_other.strip():
+        errors.append("סעיף 1: יש לפרט ניידות (אחר).")
+    if any("רווחה" in d for d in chosen_domains) and "שנה ג'" not in study_year:
+        errors.append("סעיף 2: תחום רווחה פתוח לשיבוץ רק לסטודנטים שנה ג׳ ומעלה.")
 
     # סעיף 2 — העדפת שיבוץ
     rank_to_site = {i: st.session_state.get(f"rank_{i}", "— בחר/י —") for i in range(1, RANK_COUNT + 1)}
     missing = [i for i, s in rank_to_site.items() if s == "— בחר/י —"]
     if missing:
-        errors.append(f"סעיף 2: יש לבחור מוסד לכל מקום הכשרה. חסר/ים: {', '.join(map(str, missing))}.")
+        errors.append(f"סעיף 2: יש לבחור מוסד לכל מדרגה. חסר/ים: {', '.join(map(str, missing))}.")
     chosen_sites = [s for s in rank_to_site.values() if s != "— בחר/י —"]
     if len(set(chosen_sites)) != len(chosen_sites):
         errors.append("סעיף 2: קיימת כפילות בבחירת מוסדות. כל מוסד יכול להופיע פעם אחת בלבד.")
 
-    if prev_training in ["כן","אחר..."] and not prev_place.strip():
-        errors.append("סעיף 2: יש למלא מקום/תחום אם הייתה הכשרה קודמת.")
-    if prev_training in ["כן","אחר..."] and not prev_mentor.strip():
-        errors.append("סעיף 2: יש למלא שם מדריך ומיקום.")
-    if prev_training in ["כן","אחר..."] and not prev_partner.strip():
-        errors.append("סעיף 2: יש למלא בן/בת זוג להתמחות.")
+    if prev_training in ["כן","אחר..."]:
+        if not prev_place.strip():
+            errors.append("סעיף 2: יש למלא מקום/תחום אם הייתה הכשרה קודמת.")
+        if not prev_mentor.strip():
+            errors.append("סעיף 2: יש למלא שם מדריך ומיקום.")
+        if not prev_partner.strip():
+            errors.append("סעיף 2: יש למלא בן/בת זוג להתמחות.")
 
     if not chosen_domains:
         errors.append("סעיף 2: יש לבחור עד 3 תחומים (לפחות אחד).")
@@ -553,8 +564,6 @@ if submitted:
         errors.append("סעיף 2: נבחר 'אחר' – יש לפרט תחום.")
     if chosen_domains and (top_domain not in chosen_domains):
         errors.append("סעיף 2: יש לבחור תחום מוביל מתוך השלושה.")
-    if any("רווחה" in d for d in chosen_domains) and "שנה ג'" not in study_year:
-        errors.append("סעיף 2: תחום רווחה פתוח לשיבוץ רק לסטודנטים שנה ג׳ ומעלה.")
 
     if not special_request.strip():
         errors.append("סעיף 2: יש לציין בקשה מיוחדת (אפשר 'אין').")
@@ -578,23 +587,21 @@ if submitted:
     if not (m1 and m2 and m3):
         errors.append("סעיף 5: יש לענות על שלוש שאלות המוטיבציה.")
 
-    # סעיף 6 — הצהרות
-    if not arrival_confirm:
-        errors.append("סעיף 6: יש לסמן את ההצהרה על הגעה להכשרה.")
+    # סעיף 6 — סיכום ושליחה
     if not confirm:
-        errors.append("סעיף 6: יש לאשר את הצהרת הדיוק וההתאמה.")
+        errors.append("סעיף 6: יש לאשר את ההצהרה.")
 
     # הצגת השגיאות או שמירה
     if errors:
         show_errors(errors)
     else:
-        # מפות בחירה לשמירה
+        # מפות דירוג לשמירה
         site_to_rank = {s: None for s in SITES}
         for i in range(1, RANK_COUNT + 1):
             site = st.session_state.get(f"rank_{i}")
             site_to_rank[site] = i
 
-        # בניית שורה לשמירה
+        # בניית שורה לשמירה (שימי לב: אין שבירת מחרוזות בעברית)
         tz = pytz.timezone("Asia/Jerusalem")
         row = {
             "תאריך שליחה": datetime.now(tz).strftime("%d/%m/%Y %H:%M:%S"),
@@ -604,12 +611,13 @@ if submitted:
             "מין": gender,
             "שיוך חברתי": social_affil,
             "שפת אם": (other_mt.strip() if mother_tongue == "אחר..." else mother_tongue),
-            "שפות נוספות": "; ".join([x for x in extra_langs if x != "אחר..."] + ([extra_langs_other.strip()] if "אחר..." in extra_langs else [])),
+            "שפות_נוספות": "; ".join([x for x in extra_langs if x != "אחר..."] + ([extra_langs_other.strip()] if "אחר..." in extra_langs else [])),
             "טלפון": phone.strip(),
             "כתובת": address.strip(),
             "אימייל": email.strip(),
-            "שנת לימודים": (study_year_other.strip() if study_year == "אחר" else study_year),
+            "שנת לימודים": (study_year_other.strip() if study_year == "אחר..." else study_year),
             "מסלול לימודים": track.strip(),
+            "ניידות": (mobility_other.strip() if mobility == "אחר..." else mobility),
             "הכשרה קודמת": prev_training,
             "הכשרה קודמת מקום ותחום": prev_place.strip(),
             "הכשרה קודמת מדריך ומיקום": prev_mentor.strip(),
@@ -623,12 +631,12 @@ if submitted:
             "מוטיבציה 1": m1,
             "מוטיבציה 2": m2,
             "מוטיבציה 3": m3,
-            "אישור הגעה להכשרה": "כן" if arrival_confirm else "לא",
         }
 
-        # 1) שדות "מקום הכשרה i"
+        # הוספת שדות דירוג:
+        # 1) Rank_i -> Site (מוסד שנבחר לכל מדרגה)
         for i in range(1, RANK_COUNT + 1):
-            row[f"מקום הכשרה {i}"] = st.session_state.get(f"rank_{i}")
+            row[f"דירוג_מדרגה_{i}_מוסד"] = st.session_state.get(f"rank_{i}")
         # 2) Site -> Rank (לשימוש נוח ב-Excel)
         for s in SITES:
             row[f"דירוג_{s}"] = site_to_rank[s]
